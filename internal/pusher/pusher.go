@@ -1,5 +1,5 @@
-// Package syncer plans and applies keychain -> GitHub synchronisation.
-package syncer
+// Package pusher plans and applies pushing keychain items to GitHub.
+package pusher
 
 import (
 	"context"

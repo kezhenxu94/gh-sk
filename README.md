@@ -1,7 +1,7 @@
 # gh sk
 
 A [gh](https://cli.github.com) extension. GitHub Actions secrets are write-only; `gh sk` keeps them (and Actions variables)
-in the macOS Keychain as the source of truth and syncs them to GitHub.
+in the macOS Keychain as the source of truth and pushes them to GitHub.
 
 ## Install
 
@@ -42,16 +42,18 @@ gh sk ls                                          # names + sync state, never va
 gh sk get my-org/my-repo NPM_TOKEN
 
 gh sk status my-org/my-repo                       # create / update / ok / drift / untracked
-gh sk sync my-org/my-repo --dry-run
-gh sk sync --all --prune                          # every scope in the keychain
-gh sk pull my-org/my-repo                         # variables only: GitHub -> keychain
+gh sk push my-org/my-repo --dry-run
+gh sk push --all --prune                          # every scope in the keychain
+gh sk pull my-org/my-repo                         # variables: GitHub -> keychain
+gh sk pull -f secrets.env                         # untracked secret names -> NAME= template;
+                                                  # fill in, then: gh sk import -f secrets.env && rm secrets.env
 gh sk rm my-org/my-repo OLD_TOKEN --remote
 ```
 
-## Sync and drift
+## Push and drift
 
 After each push gh sk records on the keychain item when it synced and GitHub's
-`updated_at` for that item. On the next `status`/`sync`:
+`updated_at` for that item. On the next `status`/`push`:
 
 - **update**: changed in the keychain since the last sync (or never synced by gh sk).
 - **ok**: unchanged on both sides; skipped.
@@ -68,5 +70,5 @@ in Keychain Access are detected through the item's modification date.
 - macOS asks for keychain access the first time the binary reads a value
   (choose "Always Allow"). Rebuilding changes the binary, so it asks again.
   Editing an item in Keychain Access or with `security add-generic-password -U`
-  replaces its access list, so the next `gh sk sync` will prompt (and block) for it.
-- A piped value has one trailing newline removed.
+  replaces its access list, so the next `gh sk push` will prompt (and block) for it.
+- A piped value has one trailing newline removed; `import` skips empty values.

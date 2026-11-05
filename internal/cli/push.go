@@ -10,21 +10,21 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kezhenxu94/gh-sk/internal/pusher"
 	"github.com/kezhenxu94/gh-sk/internal/remote"
 	"github.com/kezhenxu94/gh-sk/internal/scope"
 	"github.com/kezhenxu94/gh-sk/internal/store"
-	"github.com/kezhenxu94/gh-sk/internal/syncer"
 )
 
 func init() {
-	root.AddCommand(statusCmd(), syncCmd(), pullCmd())
+	root.AddCommand(statusCmd(), pushCmd(), pullCmd())
 }
 
-type syncOpts struct {
+type pushOpts struct {
 	all, prune, force, dryRun, secretsOnly, varsOnly bool
 }
 
-func (o *syncOpts) kinds() []store.Kind {
+func (o *pushOpts) kinds() []store.Kind {
 	switch {
 	case o.secretsOnly:
 		return []store.Kind{store.Secret}
@@ -97,14 +97,14 @@ func listRemote(ctx context.Context, rc remote.Remote, kind store.Kind, sc scope
 
 func fmtTime(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05") }
 
-func describe(a syncer.Action, r map[string]remote.Entry) string {
+func describe(a pusher.Action, r map[string]remote.Entry) string {
 	switch a.Op {
-	case syncer.Drift:
+	case pusher.Drift:
 		return fmt.Sprintf("changed on GitHub at %s, last synced version from %s; use --force to overwrite",
 			fmtTime(r[a.Name].UpdatedAt), fmtTime(a.Local.Meta.GitHubUpdatedAt))
-	case syncer.Untracked:
-		return "on GitHub only; save it with `gh sk set` or remove with --prune"
-	case syncer.Update:
+	case pusher.Untracked:
+		return "on GitHub only; track it with `gh sk set` (or `gh sk pull -f FILE`), or remove with --prune"
+	case pusher.Update:
 		if a.Kind == store.Secret && a.Local.Meta.SyncedAt.IsZero() && a.Local.Meta.GitHubUpdatedAt.IsZero() {
 			return "never synced by gh sk"
 		}
@@ -114,7 +114,7 @@ func describe(a syncer.Action, r map[string]remote.Entry) string {
 
 // run plans (and unless dryRun, applies) every scope/kind; it returns an
 // error when anything failed or drifted.
-func run(o *syncOpts, args []string, apply bool) error {
+func run(o *pushOpts, args []string, apply bool) error {
 	scopes, err := targetScopes(args, o.all)
 	if err != nil {
 		return err
@@ -145,15 +145,15 @@ func run(o *syncOpts, args []string, apply bool) error {
 				fmt.Fprintf(os.Stderr, "  not pruning %ss: none stored in keychain for %s\n", kind.Short(), sc)
 				prune = false
 			}
-			acts := syncer.Plan(sc, kind, local, rem, prune, o.force)
+			acts := pusher.Plan(sc, kind, local, rem, prune, o.force)
 			for _, a := range acts {
-				if a.Op == syncer.Drift {
+				if a.Op == pusher.Drift {
 					drifts++
 				}
 				fmt.Printf("  %-9s  %-6s  %-30s  %s\n", a.Op, kind.Short(), a.Name, describe(a, rem))
 			}
 			if apply && !o.dryRun {
-				if err := syncer.Apply(ctx, st, rc, sc, kind, acts); err != nil {
+				if err := pusher.Apply(ctx, st, rc, sc, kind, acts); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -165,7 +165,7 @@ func run(o *syncOpts, args []string, apply bool) error {
 	return errors.Join(errs...)
 }
 
-func addScopeFlags(c *cobra.Command, o *syncOpts) {
+func addScopeFlags(c *cobra.Command, o *pushOpts) {
 	c.Flags().BoolVar(&o.all, "all", false, "every scope stored in the keychain")
 	c.Flags().BoolVar(&o.secretsOnly, "secrets-only", false, "only secrets")
 	c.Flags().BoolVar(&o.varsOnly, "vars-only", false, "only variables")
@@ -173,7 +173,7 @@ func addScopeFlags(c *cobra.Command, o *syncOpts) {
 }
 
 func statusCmd() *cobra.Command {
-	o := &syncOpts{}
+	o := &pushOpts{}
 	c := &cobra.Command{
 		Use:   "status [scope]",
 		Short: "Compare keychain with GitHub: create/update/ok/drift/untracked",
@@ -184,10 +184,10 @@ func statusCmd() *cobra.Command {
 	return c
 }
 
-func syncCmd() *cobra.Command {
-	o := &syncOpts{}
+func pushCmd() *cobra.Command {
+	o := &pushOpts{}
 	c := &cobra.Command{
-		Use:   "sync [scope]",
+		Use:   "push [scope]",
 		Short: "Push keychain secrets and variables to GitHub",
 		Long: `Push keychain secrets and variables to GitHub.
 
@@ -206,10 +206,16 @@ GitHub but not in the keychain are reported, and deleted with --prune.`,
 
 func pullCmd() *cobra.Command {
 	var force bool
+	var secretsFile string
 	c := &cobra.Command{
 		Use:   "pull [scope]",
 		Short: "Copy Actions variables from GitHub into the keychain (secrets cannot be read back)",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `Copy Actions variables from GitHub into the keychain.
+
+Secret values cannot be read from GitHub. With --secrets-file, the names of
+secrets on GitHub that are not in the keychain are written to a dotenv file
+with empty values; fill them in and run ` + "`gh sk import -f FILE`" + ` to track them.`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			scopes, err := targetScopes(args, false)
 			if err != nil {
@@ -219,6 +225,11 @@ func pullCmd() *cobra.Command {
 			rc, err := remote.New()
 			if err != nil {
 				return err
+			}
+			if secretsFile != "" {
+				if err := writeSecretsTemplate(context.Background(), rc, sc, secretsFile); err != nil {
+					return err
+				}
 			}
 			rem, err := rc.ListVars(context.Background(), sc)
 			if err != nil {
@@ -266,5 +277,50 @@ func pullCmd() *cobra.Command {
 		},
 	}
 	c.Flags().BoolVar(&force, "force", false, "overwrite variables changed locally since the last sync")
+	c.Flags().StringVarP(&secretsFile, "secrets-file", "f", "", "write untracked secret names to this new dotenv file")
 	return c
+}
+
+// writeSecretsTemplate writes NAME= lines for secrets on GitHub that are not in
+// the keychain. The file is created 0600 and never overwritten, as it will hold
+// plaintext values once filled in.
+func writeSecretsTemplate(ctx context.Context, rc remote.Remote, sc scope.Scope, path string) error {
+	rem, err := rc.ListSecrets(ctx, sc)
+	if err != nil {
+		return err
+	}
+	local, err := localItems(store.Secret, sc)
+	if err != nil {
+		return err
+	}
+	tracked := map[string]bool{}
+	for _, it := range local {
+		tracked[it.Name] = true
+	}
+	var names []string
+	for n := range rem {
+		if !tracked[n] {
+			names = append(names, n)
+		}
+	}
+	if len(names) == 0 {
+		fmt.Fprintf(os.Stderr, "all secrets of %s are already in the keychain; %s not written\n", sc, path)
+		return nil
+	}
+	sort.Strings(names)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(f, "# Secrets of %s not in the keychain. Fill in the values, then run:\n", sc)
+	fmt.Fprintf(f, "#   gh sk import %s -f %s && rm %s\n", sc, path, path)
+	fmt.Fprintf(f, "# Lines left empty are skipped by import.\n")
+	for _, n := range names {
+		fmt.Fprintf(f, "%s=\n", n)
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "wrote %d untracked secret name(s) to %s\n", len(names), path)
+	return nil
 }

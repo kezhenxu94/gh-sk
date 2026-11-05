@@ -20,9 +20,9 @@ var st store.Store = store.Keychain{}
 var root = &cobra.Command{
 	Use:         "sk",
 	Annotations: map[string]string{cobra.CommandDisplayNameAnnotation: "gh sk"},
-	Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain and sync them to GitHub",
+	Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain and push them to GitHub",
 	Long: `gh sk stores GitHub Actions secrets and variables in the macOS Keychain under
-GitHub-like scopes and syncs them to GitHub.
+GitHub-like scopes and pushes them to GitHub.
 
 Scopes:
   github.com/<org>                          organization

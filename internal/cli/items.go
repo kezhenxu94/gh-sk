@@ -68,7 +68,7 @@ func setCmd() *cobra.Command {
 			if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Meta: meta, Value: value}); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "saved %s %s/%s (run `gh sk sync` to push)\n", kind.Short(), sc, name)
+			fmt.Fprintf(os.Stderr, "saved %s %s/%s (run `gh sk push` to push it to GitHub)\n", kind.Short(), sc, name)
 			return nil
 		},
 	}
@@ -245,6 +245,11 @@ func importCmd() *cobra.Command {
 			}
 			kind := kindOf(isVar)
 			for name, v := range normalized {
+				if v == "" {
+					// Never store blanks: syncing them would wipe the value on GitHub.
+					fmt.Fprintf(os.Stderr, "skipped %s %s/%s: empty value\n", kind.Short(), sc, name)
+					continue
+				}
 				if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Value: v}); err != nil {
 					return err
 				}
