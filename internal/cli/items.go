@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kezhenxu94/github-secrets-keychain/internal/remote"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/scope"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/store"
+	"github.com/kezhenxu94/gh-sk/internal/remote"
+	"github.com/kezhenxu94/gh-sk/internal/scope"
+	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
 func init() {
@@ -66,7 +66,7 @@ func setCmd() *cobra.Command {
 			if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Meta: meta, Value: value}); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "saved %s %s/%s (run `ghsk sync` to push)\n", kind.Short(), sc, name)
+			fmt.Fprintf(os.Stderr, "saved %s %s/%s (run `gh sk sync` to push)\n", kind.Short(), sc, name)
 			return nil
 		},
 	}

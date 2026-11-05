@@ -1,4 +1,4 @@
-// Package cli implements the ghsk CLI.
+// Package cli implements the gh sk CLI.
 package cli
 
 import (
@@ -11,24 +11,26 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/kezhenxu94/github-secrets-keychain/internal/scope"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/store"
+	"github.com/kezhenxu94/gh-sk/internal/scope"
+	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
 var st store.Store = store.Keychain{}
 
 var root = &cobra.Command{
-	Use:   "ghsk",
-	Short: "Keep GitHub Actions secrets and variables in the macOS Keychain and sync them to GitHub",
-	Long: `ghsk stores GitHub Actions secrets and variables in the macOS Keychain under
+	Use:         "sk",
+	Annotations: map[string]string{cobra.CommandDisplayNameAnnotation: "gh sk"},
+	Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain and sync them to GitHub",
+	Long: `gh sk stores GitHub Actions secrets and variables in the macOS Keychain under
 GitHub-like scopes and syncs them to GitHub.
 
 Scopes:
   github.com/<org>                          organization
   github.com/<org>/<repo>                   repository
   github.com/<org>/<repo>/env/<environment> environment
-The github.com/ prefix is optional. When the scope is omitted, it is derived
-from the origin remote of the current git repository.`,
+The github.com/ prefix is optional. When the scope is omitted, it is the
+current repository, resolved like gh does (GH_REPO, gh repo set-default,
+then the git remotes).`,
 	SilenceUsage: true,
 }
 
@@ -48,7 +50,7 @@ func kindOf(isVar bool) store.Kind {
 // resolveScope parses s, or falls back to the git origin remote when empty.
 func resolveScope(s string) (scope.Scope, error) {
 	if s == "" {
-		return scope.FromGitRemote()
+		return scope.Current()
 	}
 	return scope.Parse(s)
 }

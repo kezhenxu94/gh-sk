@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kezhenxu94/github-secrets-keychain/internal/remote"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/scope"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/store"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/syncer"
+	"github.com/kezhenxu94/gh-sk/internal/remote"
+	"github.com/kezhenxu94/gh-sk/internal/scope"
+	"github.com/kezhenxu94/gh-sk/internal/store"
+	"github.com/kezhenxu94/gh-sk/internal/syncer"
 )
 
 func init() {
@@ -103,10 +103,10 @@ func describe(a syncer.Action, r map[string]remote.Entry) string {
 		return fmt.Sprintf("changed on GitHub at %s, last synced version from %s; use --force to overwrite",
 			fmtTime(r[a.Name].UpdatedAt), fmtTime(a.Local.Meta.GitHubUpdatedAt))
 	case syncer.Untracked:
-		return "on GitHub only; save it with `ghsk set` or remove with --prune"
+		return "on GitHub only; save it with `gh sk set` or remove with --prune"
 	case syncer.Update:
 		if a.Kind == store.Secret && a.Local.Meta.SyncedAt.IsZero() && a.Local.Meta.GitHubUpdatedAt.IsZero() {
-			return "never synced by ghsk"
+			return "never synced by gh sk"
 		}
 	}
 	return ""
@@ -141,7 +141,7 @@ func run(o *syncOpts, args []string, apply bool) error {
 			}
 			prune := o.prune
 			if prune && len(local) == 0 && len(rem) > 0 {
-				// Guard against wiping a scope that was never managed by ghsk.
+				// Guard against wiping a scope that was never managed by gh sk.
 				fmt.Fprintf(os.Stderr, "  not pruning %ss: none stored in keychain for %s\n", kind.Short(), sc)
 				prune = false
 			}

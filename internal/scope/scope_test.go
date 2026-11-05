@@ -25,21 +25,3 @@ func TestParse(t *testing.T) {
 		t.Errorf("String() = %q", s)
 	}
 }
-
-func TestParseRemoteURL(t *testing.T) {
-	want := Scope{Org: "o", Repo: "r.js"}
-	for _, u := range []string{
-		"git@github.com:o/r.js.git\n",
-		"https://github.com/o/r.js",
-		"https://github.com/o/r.js.git",
-		"ssh://git@github.com/o/r.js.git",
-	} {
-		got, err := ParseRemoteURL(u)
-		if err != nil || got != want {
-			t.Errorf("ParseRemoteURL(%q) = %+v, %v", u, got, err)
-		}
-	}
-	if _, err := ParseRemoteURL("https://gitlab.com/o/r"); err == nil {
-		t.Error("expected error for non-github remote")
-	}
-}

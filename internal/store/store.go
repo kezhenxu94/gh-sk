@@ -28,7 +28,7 @@ type Meta struct {
 	// Org-level visibility: all, private or selected (with Repos).
 	Visibility string   `json:"visibility,omitempty"`
 	Repos      []string `json:"repos,omitempty"`
-	// SyncedAt is when ghsk last pushed this item to GitHub.
+	// SyncedAt is when gh sk last pushed this item to GitHub.
 	SyncedAt time.Time `json:"synced_at,omitzero"`
 	// GitHubUpdatedAt is GitHub's updated_at recorded right after that push.
 	GitHubUpdatedAt time.Time `json:"github_updated_at,omitzero"`
@@ -45,7 +45,7 @@ type Item struct {
 
 // localSlack absorbs the gap between recording SyncedAt and the keychain
 // writing its (second-granularity) modification date. It only matters for
-// edits made outside ghsk (e.g. in Keychain Access); ghsk itself clears SyncedAt.
+// edits made outside gh sk (e.g. in Keychain Access); gh sk itself clears SyncedAt.
 const localSlack = 5 * time.Second
 
 // ChangedSinceSync reports whether the value was modified after the last sync.

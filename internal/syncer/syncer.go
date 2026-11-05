@@ -8,16 +8,16 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kezhenxu94/github-secrets-keychain/internal/remote"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/scope"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/store"
+	"github.com/kezhenxu94/gh-sk/internal/remote"
+	"github.com/kezhenxu94/gh-sk/internal/scope"
+	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
 type Op string
 
 const (
 	Create    Op = "create"    // in keychain, not on GitHub
-	Update    Op = "update"    // changed locally (or never synced by ghsk)
+	Update    Op = "update"    // changed locally (or never synced by gh sk)
 	OK        Op = "ok"        // in sync
 	Drift     Op = "drift"     // changed on GitHub since our last sync; skipped unless forced
 	Untracked Op = "untracked" // on GitHub, not in keychain

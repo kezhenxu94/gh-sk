@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kezhenxu94/github-secrets-keychain/internal/remote"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/scope"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/store"
+	"github.com/kezhenxu94/gh-sk/internal/remote"
+	"github.com/kezhenxu94/gh-sk/internal/scope"
+	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
 var (

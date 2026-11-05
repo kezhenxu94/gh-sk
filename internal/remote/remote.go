@@ -8,16 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"os/exec"
-	"strings"
 	"time"
 
+	"github.com/cli/go-gh/v2/pkg/auth"
 	"github.com/google/go-github/v93/github"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/kezhenxu94/github-secrets-keychain/internal/scope"
-	"github.com/kezhenxu94/github-secrets-keychain/internal/store"
+	"github.com/kezhenxu94/gh-sk/internal/scope"
+	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
 // Entry is what GitHub reports for one secret or variable. Value is empty for secrets.
@@ -39,18 +37,12 @@ type Client struct {
 	gh *github.Client
 }
 
-// Token returns GITHUB_TOKEN / GH_TOKEN, falling back to `gh auth token`.
+// Token returns the token gh uses for github.com (GH_TOKEN, GITHUB_TOKEN, gh config or keyring).
 func Token() (string, error) {
-	for _, k := range []string{"GITHUB_TOKEN", "GH_TOKEN"} {
-		if t := os.Getenv(k); t != "" {
-			return t, nil
-		}
+	if t, _ := auth.TokenForHost("github.com"); t != "" {
+		return t, nil
 	}
-	out, err := exec.Command("gh", "auth", "token").Output()
-	if err != nil {
-		return "", errors.New("no GitHub token: set GITHUB_TOKEN or run `gh auth login`")
-	}
-	return strings.TrimSpace(string(out)), nil
+	return "", errors.New("no GitHub token: run `gh auth login` or set GH_TOKEN")
 }
 
 func New() (*Client, error) {
@@ -58,7 +50,7 @@ func New() (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	gh, err := github.NewClient(github.WithAuthToken(tok), github.WithUserAgent("ghsk"))
+	gh, err := github.NewClient(github.WithAuthToken(tok), github.WithUserAgent("gh-sk"))
 	if err != nil {
 		return nil, err
 	}

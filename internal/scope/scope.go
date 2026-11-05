@@ -4,9 +4,9 @@ package scope
 
 import (
 	"fmt"
-	"os/exec"
-	"regexp"
 	"strings"
+
+	"github.com/cli/go-gh/v2/pkg/repository"
 )
 
 const host = "github.com"
@@ -52,22 +52,15 @@ func Parse(s string) (Scope, error) {
 	return Scope{}, fmt.Errorf("invalid scope %q: want github.com/<org>[/<repo>[/env/<environment>]]", s)
 }
 
-var remoteRe = regexp.MustCompile(`github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$`)
-
-// ParseRemoteURL extracts org/repo from a GitHub git remote URL (ssh or https).
-func ParseRemoteURL(url string) (Scope, error) {
-	m := remoteRe.FindStringSubmatch(strings.TrimSpace(url))
-	if m == nil {
-		return Scope{}, fmt.Errorf("remote %q is not a github.com repository", url)
-	}
-	return Scope{Org: m[1], Repo: m[2]}, nil
-}
-
-// FromGitRemote derives the repo scope from the origin remote of the current directory.
-func FromGitRemote() (Scope, error) {
-	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+// Current resolves the repository like gh does: GH_REPO, `gh repo set-default`,
+// then the git remotes of the current directory.
+func Current() (Scope, error) {
+	r, err := repository.Current()
 	if err != nil {
-		return Scope{}, fmt.Errorf("no scope given and cannot read git origin remote: %w", err)
+		return Scope{}, fmt.Errorf("no scope given: %w", err)
 	}
-	return ParseRemoteURL(string(out))
+	if r.Host != host {
+		return Scope{}, fmt.Errorf("current repository is on %s; only %s is supported", r.Host, host)
+	}
+	return Scope{Org: r.Owner, Repo: r.Name}, nil
 }
