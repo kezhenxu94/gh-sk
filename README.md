@@ -38,7 +38,8 @@ gh sk set DATABASE_URL -b 'postgres://…'           # current repo; -b ends up 
 gh sk set my-org ORG_TOKEN --visibility selected --repos api,web
 gh sk set my-org/my-repo/env/prod REGION --var
 gh sk import my-org/my-repo -f .env               # bulk load
-gh sk ls                                          # names + sync state, never values
+gh sk ls                                          # current repo: names + sync state, never values
+gh sk ls --all                                    # every scope in the keychain
 gh sk get my-org/my-repo NPM_TOKEN
 
 gh sk status my-org/my-repo                       # create / update / ok / drift / untracked

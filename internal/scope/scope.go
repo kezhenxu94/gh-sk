@@ -59,7 +59,7 @@ func Parse(s string) (Scope, error) {
 // then the git remotes of the current directory.
 func Current() (Scope, error) {
 	if os.Getenv("GH_REPO") == "" && exec.Command("git", "rev-parse", "--is-inside-work-tree").Run() != nil {
-		return Scope{}, errors.New("no scope given and not inside a git repository; pass a scope such as my-org/my-repo")
+		return Scope{}, errors.New("no scope given and not inside a git repository; pass a scope such as my-org/my-repo (or --all where supported)")
 	}
 	r, err := repository.Current()
 	if err != nil {

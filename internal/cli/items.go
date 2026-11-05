@@ -129,14 +129,23 @@ func listAll(prefix string) ([]store.Item, error) {
 }
 
 func lsCmd() *cobra.Command {
-	return &cobra.Command{
+	var all bool
+	c := &cobra.Command{
 		Use:   "ls [scope]",
-		Short: "List stored names by scope (never values); without scope lists everything",
+		Short: "List stored names (never values) of a scope and its children; defaults to the current repo",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			prefix := ""
-			if len(args) == 1 {
-				sc, err := scope.Parse(args[0])
+			if all {
+				if len(args) > 0 {
+					return errors.New("--all takes no scope argument")
+				}
+			} else {
+				sArg := ""
+				if len(args) == 1 {
+					sArg = args[0]
+				}
+				sc, err := resolveScope(sArg)
 				if err != nil {
 					return err
 				}
@@ -173,6 +182,8 @@ func lsCmd() *cobra.Command {
 			return nil
 		},
 	}
+	c.Flags().BoolVar(&all, "all", false, "list every scope stored in the keychain")
+	return c
 }
 
 func rmCmd() *cobra.Command {
