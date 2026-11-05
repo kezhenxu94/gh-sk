@@ -14,9 +14,43 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+    env:
+      # Read by script/build.sh; signing is skipped while it is unset.
+      MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Import signing certificate
+        if: env.MACOS_SIGNING_IDENTITY != ''
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          # Optional: empty when the .p12 was exported without a password.
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          test -n "$P12" || { echo "::error::MACOS_SIGNING_IDENTITY is set but secret MACOS_CERTIFICATE_P12 is missing"; exit 1; }
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          kc_password="$(openssl rand -base64 24)"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+
+          security create-keychain -p "$kc_password" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kc_password" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          # Developer ID intermediates (G1 and G2), in case the runner lacks them.
+          for ca in DeveloperIDCA DeveloperIDG2CA; do
+            curl -fsSL -o "$RUNNER_TEMP/$ca.cer" "https://www.apple.com/certificateauthority/$ca.cer"
+            security import "$RUNNER_TEMP/$ca.cer" -k "$kc" || true # already present is fine
+          done
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_password" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          security find-identity -v -p codesigning "$kc"
+
       - uses: cli/gh-extension-precompile@v2
         with:
           go_version_file: go.mod
           build_script_override: script/build.sh
+
+      - name: Remove signing keychain
+        if: always() && env.MACOS_SIGNING_IDENTITY != ''
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true

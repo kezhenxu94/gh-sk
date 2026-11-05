@@ -87,8 +87,10 @@ in Keychain Access are detected through the item's modification date.
 
 ## Notes
 
-- macOS asks for keychain access the first time the binary reads a value
-  (choose "Always Allow"). Rebuilding changes the binary, so it asks again.
+- macOS asks for keychain access the first time gh sk reads a value (choose
+  "Always Allow"). Release binaries are signed with a Developer ID under a fixed
+  identifier, so that answer survives upgrades. Binaries you build yourself are
+  ad-hoc signed, so macOS asks again after every rebuild.
   Editing an item in Keychain Access or with `security add-generic-password -U`
   replaces its access list, so the next `gh sk push` will prompt (and block) for it.
 - A piped value has one trailing newline removed.
@@ -106,3 +108,7 @@ GHSK_KEYCHAIN_TESTS=1 go test ./...        # also run against the real Keychain 
 
 CI runs everything, including the Keychain tests in a throwaway keychain, on a macOS
 runner for every pull request and push to `main`; releases only publish after it passes.
+
+Release signing uses the repository variable `MACOS_SIGNING_IDENTITY` and the secrets
+`MACOS_CERTIFICATE_P12` (base64 `.p12`) and optional `MACOS_CERTIFICATE_PASSWORD`.
+Without the variable, binaries are built unsigned.

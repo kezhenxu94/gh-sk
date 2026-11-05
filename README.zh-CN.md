@@ -81,8 +81,9 @@ gh sk export -f .env                              # 生成 NAME='value' 格式�
 
 ## 注意事项
 
-- 二进制首次读取某个值时 macOS 会请求钥匙串访问权限（选择“始终允许”）。
-  重新编译会改变二进制，因此会再次询问。在“钥匙串访问”中或用 `security add-generic-password -U`
+- gh sk 首次读取某个值时 macOS 会请求钥匙串访问权限（选择“始终允许”）。
+  发布的二进制使用 Developer ID 以固定标识符签名，因此升级后该授权依然有效；
+  自行编译的二进制只有临时（ad-hoc）签名，每次重新编译后都会再次询问。在“钥匙串访问”中或用 `security add-generic-password -U`
   编辑条目会替换其访问控制列表，下次 `gh sk push` 时会弹窗（并阻塞）请求授权。
 - 通过管道传入的值会去掉末尾的一个换行符。
 - 空值永远不会到达 GitHub：`set` 拒绝、`import` 跳过、`push` 拒绝发送。
@@ -97,3 +98,6 @@ GHSK_KEYCHAIN_TESTS=1 go test ./...        # 同时在真实钥匙串上运行�
 
 CI 在 macOS runner 上为每个 pull request 和推送到 `main` 的提交运行全部测试（包括在临时钥匙串中的钥匙串测试）；
 只有测试通过后才会发布 release。
+
+发布签名使用仓库变量 `MACOS_SIGNING_IDENTITY`，以及 secret `MACOS_CERTIFICATE_P12`（base64 编码的 `.p12`）
+和可选的 `MACOS_CERTIFICATE_PASSWORD`。未设置该变量时构建不签名。
