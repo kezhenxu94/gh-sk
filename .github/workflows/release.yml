@@ -1,0 +1,19 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # cgo (Keychain) requires building on macOS.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cli/gh-extension-precompile@v2
+        with:
+          go_version_file: go.mod
+          build_script_override: script/build.sh
