@@ -1,5 +1,7 @@
 # gh sk
 
+English | [简体中文](README.zh-CN.md)
+
 A [gh](https://cli.github.com) extension. GitHub Actions secrets are write-only; `gh sk` keeps them (and Actions variables)
 in the macOS Keychain as the source of truth and pushes them to GitHub.
 
