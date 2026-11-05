@@ -3,7 +3,10 @@
 package scope
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/repository"
@@ -55,6 +58,9 @@ func Parse(s string) (Scope, error) {
 // Current resolves the repository like gh does: GH_REPO, `gh repo set-default`,
 // then the git remotes of the current directory.
 func Current() (Scope, error) {
+	if os.Getenv("GH_REPO") == "" && exec.Command("git", "rev-parse", "--is-inside-work-tree").Run() != nil {
+		return Scope{}, errors.New("no scope given and not inside a git repository; pass a scope such as my-org/my-repo")
+	}
 	r, err := repository.Current()
 	if err != nil {
 		return Scope{}, fmt.Errorf("no scope given: %w", err)

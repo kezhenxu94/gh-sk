@@ -43,13 +43,13 @@ func orgMeta(sc scope.Scope, visibility string, repos []string) (store.Meta, err
 
 func setCmd() *cobra.Command {
 	var isVar bool
-	var visibility string
+	var visibility, body string
 	var repos []string
 	c := &cobra.Command{
 		Use:   "set [scope] NAME",
-		Short: "Store a secret (or variable) in the keychain; value is prompted or read from stdin",
+		Short: "Store a secret (or variable) in the keychain; value from --body, a hidden prompt or stdin",
 		Args:  cobra.RangeArgs(1, 2),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sc, name, err := scopeAndName(args)
 			if err != nil {
 				return err
@@ -58,9 +58,11 @@ func setCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			value, err := readValue(name)
-			if err != nil {
-				return err
+			value := body
+			if !cmd.Flags().Changed("body") {
+				if value, err = readValue(name); err != nil {
+					return err
+				}
 			}
 			kind := kindOf(isVar)
 			if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Meta: meta, Value: value}); err != nil {
@@ -71,6 +73,7 @@ func setCmd() *cobra.Command {
 		},
 	}
 	c.Flags().BoolVar(&isVar, "var", false, "store an Actions variable instead of a secret")
+	c.Flags().StringVarP(&body, "body", "b", "", "the value (visible in shell history; omit to be prompted or pipe via stdin)")
 	c.Flags().StringVar(&visibility, "visibility", "", "org scopes: all, private (default on GitHub) or selected")
 	c.Flags().StringSliceVar(&repos, "repos", nil, "org scopes with --visibility selected: repository names")
 	return c

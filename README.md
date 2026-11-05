@@ -34,6 +34,7 @@ sync timestamps). A secret and a variable cannot share a name in one scope.
 
 ```sh
 gh sk set my-org/my-repo NPM_TOKEN                # prompts (hidden); or pipe the value in
+gh sk set DATABASE_URL -b 'postgres://…'           # current repo; -b ends up in shell history
 gh sk set my-org ORG_TOKEN --visibility selected --repos api,web
 gh sk set my-org/my-repo/env/prod REGION --var
 gh sk import my-org/my-repo -f .env               # bulk load
