@@ -10,14 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kezhenxu94/gh-sk/internal/remote"
 	"github.com/kezhenxu94/gh-sk/internal/scope"
 	"github.com/kezhenxu94/gh-sk/internal/store"
 )
-
-func init() {
-	root.AddCommand(setCmd(), getCmd(), lsCmd(), rmCmd(), importCmd())
-}
 
 func orgMeta(sc scope.Scope, visibility string, repos []string) (store.Meta, error) {
 	if visibility == "" && len(repos) == 0 {
@@ -71,7 +66,7 @@ func setCmd() *cobra.Command {
 			if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Meta: meta, Value: value}); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "saved %s %s/%s (run `gh sk push` to push it to GitHub)\n", kind.Short(), sc, name)
+			fmt.Fprintf(stderr, "saved %s %s/%s (run `gh sk push` to push it to GitHub)\n", kind.Short(), sc, name)
 			return nil
 		},
 	}
@@ -97,7 +92,7 @@ func getCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(it.Value)
+			fmt.Fprintln(stdout, it.Value)
 			return nil
 		},
 	}
@@ -158,7 +153,7 @@ func lsCmd() *cobra.Command {
 			last := ""
 			for _, it := range items {
 				if it.Scope != last {
-					fmt.Println(it.Scope)
+					fmt.Fprintln(stdout, it.Scope)
 					last = it.Scope
 				}
 				synced := "never synced"
@@ -177,7 +172,7 @@ func lsCmd() *cobra.Command {
 						extra += " repos=" + strings.Join(it.Meta.Repos, ",")
 					}
 				}
-				fmt.Printf("  %-6s  %-30s  %s%s\n", it.Kind.Short(), it.Name, synced, extra)
+				fmt.Fprintf(stdout, "  %-6s  %-30s  %s%s\n", it.Kind.Short(), it.Name, synced, extra)
 			}
 			return nil
 		},
@@ -199,7 +194,7 @@ func rmCmd() *cobra.Command {
 			}
 			kind := kindOf(isVar)
 			if alsoRemote {
-				rc, err := remote.New()
+				rc, err := newRemote()
 				if err != nil {
 					return err
 				}
@@ -210,12 +205,12 @@ func rmCmd() *cobra.Command {
 				if err := del(context.Background(), sc, name); err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stderr, "deleted %s %s/%s on GitHub\n", kind.Short(), sc, name)
+				fmt.Fprintf(stderr, "deleted %s %s/%s on GitHub\n", kind.Short(), sc, name)
 			}
 			if err := st.Delete(kind, sc.String(), name); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "deleted %s %s/%s from keychain\n", kind.Short(), sc, name)
+			fmt.Fprintf(stderr, "deleted %s %s/%s from keychain\n", kind.Short(), sc, name)
 			return nil
 		},
 	}
@@ -261,13 +256,13 @@ func importCmd() *cobra.Command {
 			for name, v := range normalized {
 				if v == "" {
 					// Never store blanks: syncing them would wipe the value on GitHub.
-					fmt.Fprintf(os.Stderr, "skipped %s %s/%s: empty value\n", kind.Short(), sc, name)
+					fmt.Fprintf(stderr, "skipped %s %s/%s: empty value\n", kind.Short(), sc, name)
 					continue
 				}
 				if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Value: v}); err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stderr, "saved %s %s/%s\n", kind.Short(), sc, name)
+				fmt.Fprintf(stderr, "saved %s %s/%s\n", kind.Short(), sc, name)
 			}
 			return nil
 		},

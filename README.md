@@ -51,6 +51,23 @@ gh sk pull -f secrets.env                         # untracked secret names -> NA
 gh sk rm my-org/my-repo OLD_TOKEN --remote
 ```
 
+## Using secrets locally
+
+```sh
+gh sk exec -- npm run dev                         # secrets + variables of the current repo as env vars
+gh sk exec my-org/my-repo/env/prod -- ./deploy.sh
+gh sk export -f .env                              # NAME='value' dotenv file; --var for variables
+```
+
+Prefer `exec`: nothing touches the disk, multi-line values work, and the command's
+exit code is passed through. Keychain values replace environment variables of the
+same name; org-level items are not included for repo scopes.
+
+`export` writes plaintext, so the file is created `0600`, never overwritten, and
+should not be committed. Values are single-quoted so `gh sk import` reads them back
+unchanged; multi-line values (e.g. PEM keys) cannot fit a dotenv line and are skipped
+with a warning.
+
 ## Push and drift
 
 After each push gh sk records on the keychain item when it synced and GitHub's
@@ -75,3 +92,15 @@ in Keychain Access are detected through the item's modification date.
 - A piped value has one trailing newline removed.
 - Empty values never reach GitHub: `set` rejects them, `import` skips them and
   `push` refuses to send them.
+- `import` skips `#` comment lines and strips one pair of matching outer quotes;
+  inline `# comments` and escapes such as `\n` are kept literally.
+
+## Development
+
+```sh
+go test ./...                              # unit + CLI tests with in-memory keychain and fake GitHub
+GHSK_KEYCHAIN_TESTS=1 go test ./...        # also run against the real Keychain (writes, then deletes, test items)
+```
+
+CI runs everything, including the Keychain tests in a throwaway keychain, on a macOS
+runner for every pull request and push to `main`; releases only publish after it passes.

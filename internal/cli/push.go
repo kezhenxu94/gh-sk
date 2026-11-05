@@ -16,10 +16,6 @@ import (
 	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
-func init() {
-	root.AddCommand(statusCmd(), pushCmd(), pullCmd())
-}
-
 type pushOpts struct {
 	all, prune, force, dryRun, secretsOnly, varsOnly bool
 }
@@ -119,7 +115,7 @@ func run(o *pushOpts, args []string, apply bool) error {
 	if err != nil {
 		return err
 	}
-	rc, err := remote.New()
+	rc, err := newRemote()
 	if err != nil {
 		return err
 	}
@@ -127,7 +123,7 @@ func run(o *pushOpts, args []string, apply bool) error {
 	var errs []error
 	drifts := 0
 	for _, sc := range scopes {
-		fmt.Println(sc)
+		fmt.Fprintln(stdout, sc)
 		for _, kind := range o.kinds() {
 			local, err := localItems(kind, sc)
 			if err != nil {
@@ -142,7 +138,7 @@ func run(o *pushOpts, args []string, apply bool) error {
 			prune := o.prune
 			if prune && len(local) == 0 && len(rem) > 0 {
 				// Guard against wiping a scope that was never managed by gh sk.
-				fmt.Fprintf(os.Stderr, "  not pruning %ss: none stored in keychain for %s\n", kind.Short(), sc)
+				fmt.Fprintf(stderr, "  not pruning %ss: none stored in keychain for %s\n", kind.Short(), sc)
 				prune = false
 			}
 			acts := pusher.Plan(sc, kind, local, rem, prune, o.force)
@@ -150,7 +146,7 @@ func run(o *pushOpts, args []string, apply bool) error {
 				if a.Op == pusher.Drift {
 					drifts++
 				}
-				fmt.Printf("  %-9s  %-6s  %-30s  %s\n", a.Op, kind.Short(), a.Name, describe(a, rem))
+				fmt.Fprintf(stdout, "  %-9s  %-6s  %-30s  %s\n", a.Op, kind.Short(), a.Name, describe(a, rem))
 			}
 			if apply && !o.dryRun {
 				if err := pusher.Apply(ctx, st, rc, sc, kind, acts); err != nil {
@@ -222,7 +218,7 @@ with empty values; fill them in and run ` + "`gh sk import -f FILE`" + ` to trac
 				return err
 			}
 			sc := scopes[0]
-			rc, err := remote.New()
+			rc, err := newRemote()
 			if err != nil {
 				return err
 			}
@@ -268,7 +264,7 @@ with empty values; fill them in and run ` + "`gh sk import -f FILE`" + ` to trac
 				if err != nil {
 					return err
 				}
-				fmt.Printf("  %-8s  var  %s\n", op, name)
+				fmt.Fprintf(stdout, "  %-8s  var  %s\n", op, name)
 			}
 			if skipped > 0 {
 				return fmt.Errorf("%d variable(s) changed locally since the last sync were skipped; rerun with --force to overwrite", skipped)
@@ -304,7 +300,7 @@ func writeSecretsTemplate(ctx context.Context, rc remote.Remote, sc scope.Scope,
 		}
 	}
 	if len(names) == 0 {
-		fmt.Fprintf(os.Stderr, "all secrets of %s are already in the keychain; %s not written\n", sc, path)
+		fmt.Fprintf(stderr, "all secrets of %s are already in the keychain; %s not written\n", sc, path)
 		return nil
 	}
 	sort.Strings(names)
@@ -321,6 +317,6 @@ func writeSecretsTemplate(ctx context.Context, rc remote.Remote, sc scope.Scope,
 	if err := f.Close(); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "wrote %d untracked secret name(s) to %s\n", len(names), path)
+	fmt.Fprintf(stderr, "wrote %d untracked secret name(s) to %s\n", len(names), path)
 	return nil
 }

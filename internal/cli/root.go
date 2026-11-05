@@ -7,21 +7,33 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/kezhenxu94/gh-sk/internal/remote"
 	"github.com/kezhenxu94/gh-sk/internal/scope"
 	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
-var st store.Store = store.Keychain{}
+// Dependencies, replaced in tests.
+var (
+	st        store.Store = store.Keychain{}
+	newRemote             = func() (remote.Remote, error) { return remote.New() }
+	stdin     *os.File    = os.Stdin
+	stdout    io.Writer   = os.Stdout
+	stderr    io.Writer   = os.Stderr
+	execve                = syscall.Exec
+)
 
-var root = &cobra.Command{
-	Use:         "sk",
-	Annotations: map[string]string{cobra.CommandDisplayNameAnnotation: "gh sk"},
-	Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain and push them to GitHub",
-	Long: `gh sk stores GitHub Actions secrets and variables in the macOS Keychain under
+// newRoot builds a fresh command tree, so flag values never leak between runs.
+func newRoot() *cobra.Command {
+	root := &cobra.Command{
+		Use:         "sk",
+		Annotations: map[string]string{cobra.CommandDisplayNameAnnotation: "gh sk"},
+		Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain and push them to GitHub",
+		Long: `gh sk stores GitHub Actions secrets and variables in the macOS Keychain under
 GitHub-like scopes and pushes them to GitHub.
 
 Scopes:
@@ -31,11 +43,15 @@ Scopes:
 The github.com/ prefix is optional. When the scope is omitted, it is the
 current repository, resolved like gh does (GH_REPO, gh repo set-default,
 then the git remotes).`,
-	SilenceUsage: true,
+		SilenceUsage: true,
+	}
+	root.AddCommand(setCmd(), getCmd(), lsCmd(), rmCmd(), importCmd(), exportCmd(), execCmd(),
+		statusCmd(), pushCmd(), pullCmd())
+	return root
 }
 
 func Execute() {
-	if err := root.Execute(); err != nil {
+	if err := newRoot().Execute(); err != nil {
 		os.Exit(1)
 	}
 }
@@ -71,14 +87,14 @@ func scopeAndName(args []string) (scope.Scope, string, error) {
 
 // readValue prompts without echo on a terminal, or reads stdin (minus one trailing newline).
 func readValue(name string) (string, error) {
-	fd := int(os.Stdin.Fd())
+	fd := int(stdin.Fd())
 	if term.IsTerminal(fd) {
-		fmt.Fprintf(os.Stderr, "Value for %s: ", name)
+		fmt.Fprintf(stderr, "Value for %s: ", name)
 		b, err := term.ReadPassword(fd)
-		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(stderr)
 		return string(b), err
 	}
-	b, err := io.ReadAll(os.Stdin)
+	b, err := io.ReadAll(stdin)
 	if err != nil {
 		return "", err
 	}

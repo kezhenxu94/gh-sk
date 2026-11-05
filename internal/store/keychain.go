@@ -96,18 +96,8 @@ func (Keychain) Set(it Item) error {
 	if err != nil {
 		return err
 	}
-	if old != nil && old.Kind != it.Kind {
-		// Service+account is the keychain primary key, so a secret and a
-		// variable cannot share a name within one scope.
-		return fmt.Errorf("%s/%s already exists in keychain as %s", it.Scope, it.Name, old.Kind.Short())
-	}
-	if old != nil {
-		if it.Meta.GitHubUpdatedAt.IsZero() {
-			it.Meta.GitHubUpdatedAt = old.Meta.GitHubUpdatedAt
-		}
-		if it.Meta.Visibility == "" {
-			it.Meta.Visibility, it.Meta.Repos = old.Meta.Visibility, old.Meta.Repos
-		}
+	if it, err = merge(old, it); err != nil {
+		return err
 	}
 	label := it.Scope + "/" + it.Name
 	if old == nil {

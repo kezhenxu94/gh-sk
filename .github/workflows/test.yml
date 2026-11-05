@@ -1,0 +1,40 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call: # used by release.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # The Keychain binding needs cgo and macOS.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+
+      - name: Create a throwaway default keychain
+        run: |
+          security create-keychain -p ci gh-sk-ci.keychain
+          security list-keychains -d user -s gh-sk-ci.keychain $(security list-keychains -d user | tr -d '"')
+          security default-keychain -s gh-sk-ci.keychain
+          security unlock-keychain -p ci gh-sk-ci.keychain
+          security set-keychain-settings gh-sk-ci.keychain # never auto-lock
+
+      - name: Test (including the real Keychain)
+        env:
+          GHSK_KEYCHAIN_TESTS: "1"
+        run: go test -race -count=1 -v ./...
+
+      - name: Build release binaries
+        run: ./script/build.sh && file dist/*
