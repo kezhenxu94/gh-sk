@@ -53,6 +53,12 @@ func TestCurrentFromGitRemote(t *testing.T) {
 		t.Skip("git not installed")
 	}
 	t.Setenv("GH_REPO", "")
+	// gh only trusts remotes on hosts it is logged in to. Use an empty config
+	// and a dummy token so the result does not depend on the machine's gh login.
+	t.Setenv("GH_CONFIG_DIR", t.TempDir())
+	t.Setenv("GH_HOST", "")
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "dummy")
 	dir := t.TempDir()
 	t.Chdir(dir)
 	for _, args := range [][]string{
