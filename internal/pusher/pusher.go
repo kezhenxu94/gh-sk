@@ -92,6 +92,11 @@ func Apply(ctx context.Context, st store.Store, rc remote.Remote, s scope.Scope,
 				}
 				value = it.Value
 			}
+			if value == "" {
+				// Last line of defence: never overwrite a value on GitHub with nothing.
+				err = errors.New("refusing to push an empty value; set it with `gh sk set`")
+				break
+			}
 			if kind == store.Secret {
 				err = rc.PutSecret(ctx, s, a.Name, value, a.Local.Meta)
 			} else {

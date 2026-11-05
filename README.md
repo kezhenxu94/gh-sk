@@ -71,4 +71,6 @@ in Keychain Access are detected through the item's modification date.
   (choose "Always Allow"). Rebuilding changes the binary, so it asks again.
   Editing an item in Keychain Access or with `security add-generic-password -U`
   replaces its access list, so the next `gh sk push` will prompt (and block) for it.
-- A piped value has one trailing newline removed; `import` skips empty values.
+- A piped value has one trailing newline removed.
+- Empty values never reach GitHub: `set` rejects them, `import` skips them and
+  `push` refuses to send them.

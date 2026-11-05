@@ -140,3 +140,15 @@ func TestApplyRecordsSyncTimes(t *testing.T) {
 		t.Errorf("sync times not recorded: %+v", m)
 	}
 }
+
+func TestApplyRefusesEmptyValue(t *testing.T) {
+	st := &fakeStore{items: map[string]store.Item{"EMPTY": {Name: "EMPTY"}}}
+	rc := &fakeRemote{secrets: map[string]remote.Entry{"EMPTY": {UpdatedAt: t0}}, values: map[string]string{}}
+	acts := Plan(sc, store.Secret, []store.Item{{Name: "EMPTY"}}, rc.secrets, false, false)
+	if err := Apply(context.Background(), st, rc, sc, store.Secret, acts); err == nil {
+		t.Fatal("expected an error for an empty value")
+	}
+	if _, pushed := rc.values["EMPTY"]; pushed {
+		t.Error("empty value must not be pushed")
+	}
+}

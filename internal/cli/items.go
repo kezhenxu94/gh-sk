@@ -64,6 +64,9 @@ func setCmd() *cobra.Command {
 					return err
 				}
 			}
+			if value == "" {
+				return errors.New("empty value: pushing it would wipe the value on GitHub")
+			}
 			kind := kindOf(isVar)
 			if err := st.Set(store.Item{Kind: kind, Scope: sc.String(), Name: name, Meta: meta, Value: value}); err != nil {
 				return err
