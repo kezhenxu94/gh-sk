@@ -60,7 +60,13 @@ gh sk export -f .env                              # 生成 NAME='value' 格式�
 ```
 
 推荐使用 `exec`：不落盘、支持多行值，并原样传递命令的退出码。钥匙串中的值会覆盖同名环境变量；
-仓库作用域不包含组织级的项。
+每次 `exec` 只加载一个作用域；如需同时注入组织级的项，可嵌套调用，内层作用域覆盖外层，与 GitHub Actions 一致：
+
+```sh
+gh sk exec my-org -- gh sk exec -- npm run dev
+```
+
+嵌套不考虑组织项的可见性：即使在 Actions 中该仓库看不到某个组织 secret（`selected` 未包含该仓库，或公开仓库遇到 `private`），它仍会被注入。
 
 `export` 写出的是明文，因此文件以 `0600` 权限创建、绝不覆盖已有文件，且不应提交到仓库。
 值使用单引号包裹，`gh sk import` 可原样读回；多行值（如 PEM 密钥）无法放入一行 dotenv，会被跳过并给出警告。

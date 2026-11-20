@@ -63,7 +63,15 @@ gh sk export -f .env                              # NAME='value' dotenv file; --
 
 Prefer `exec`: nothing touches the disk, multi-line values work, and the command's
 exit code is passed through. Keychain values replace environment variables of the
-same name; org-level items are not included for repo scopes.
+same name. Each `exec` loads one scope only; to also get org-level items, nest the
+calls so inner scopes override outer ones, as in GitHub Actions:
+
+```sh
+gh sk exec my-org -- gh sk exec -- npm run dev
+```
+
+Nesting ignores org visibility: an org secret this repo cannot see in Actions
+(`selected` without it, or `private` on a public repo) is still injected.
 
 `export` writes plaintext, so the file is created `0600`, never overwritten, and
 should not be committed. Values are single-quoted so `gh sk import` reads them back

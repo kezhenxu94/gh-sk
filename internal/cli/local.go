@@ -129,8 +129,10 @@ func execCmd() *cobra.Command {
 		Use:   "exec [scope] -- COMMAND [ARGS...]",
 		Short: "Run a command with the scope's secrets and variables as environment variables",
 		Long: `Run a command with the scope's secrets and variables as environment variables.
-Nothing is written to disk. Org-level items are not included for repo scopes.`,
-		Example: "  gh sk exec -- npm run dev\n  gh sk exec my-org/my-repo/env/prod -- ./deploy.sh",
+Nothing is written to disk. Only the given scope is loaded; nest calls to add
+org-level items, inner scopes overriding outer ones. Nesting ignores org visibility.`,
+		Example: "  gh sk exec -- npm run dev\n  gh sk exec my-org/my-repo/env/prod -- ./deploy.sh\n" +
+			"  gh sk exec my-org -- gh sk exec -- npm run dev   # org + current repo",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dash := cmd.ArgsLenAtDash()
 			if dash < 0 || dash == len(args) {
