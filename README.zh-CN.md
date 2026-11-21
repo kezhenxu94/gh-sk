@@ -3,12 +3,12 @@
 [English](README.md) | 简体中文
 
 一个 [gh](https://cli.github.com) 扩展。GitHub Actions 的 secret 只能写入、无法读回；`gh sk` 把它们（以及 Actions 变量）
-保存在 macOS 钥匙串（Keychain）中作为唯一可信来源，并推送到 GitHub。
+保存在 macOS 钥匙串（Keychain）或 [gopass](https://github.com/gopasspw/gopass) 存储中作为唯一可信来源，并推送到 GitHub。
 
 ## 安装
 
 ```sh
-gh extension install kezhenxu94/gh-sk   # 仅支持 macOS
+gh extension install kezhenxu94/gh-sk   # 支持 macOS 和 Linux（amd64、arm64）
 ```
 
 从源码安装：`go build -o gh-sk . && gh extension install .`（目录名必须为 `gh-sk`）。
@@ -26,9 +26,27 @@ gh extension install kezhenxu94/gh-sk   # 仅支持 macOS
 命令行中 `github.com/` 前缀可省略。省略作用域时使用当前仓库，解析方式与 `gh` 相同：
 依次为 `GH_REPO`、`gh repo set-default`、git remote。
 
-每一项都是一个“通用密码”：service = 作用域，account = 名称，种类（kind）=
+在钥匙串中，每一项都是一个“通用密码”：service = 作用域，account = 名称，种类（kind）=
 `github-secret` / `github-variable`，注释 = JSON 元数据（组织可见性、同步时间）。
 同一作用域内 secret 与变量不能同名。
+
+## 存储后端
+
+macOS 默认使用钥匙串；Linux 始终使用 gopass。若要在 macOS 上也使用 gopass（例如与 Linux 机器共享 secret），
+设置 `GH_SK_STORE=gopass`。两个后端相互独立，不会互相复制。
+
+gh sk 使用 gopass 的 Go 库，因此运行时只需要 `gpg`（同步时还需要 `git`）；`gopass` 命令行工具仅用于初始化和同步。
+它读取你的 gopass 配置，因此普通的 `pass` 存储同样可用。以树莓派为例：
+
+```sh
+sudo apt install gnupg git gopass
+gpg --import my-key.asc                 # 与 Mac 上相同的密钥，或添加一个接收者
+gopass clone git@example.com:me/pass.git  # 新建存储则使用 `gopass setup`
+```
+
+每个条目为 `gh-sk/<作用域>/<名称>`，内容是包含种类、值、元数据和修改时间的 JSON。
+存储是 git 仓库时，每次写入都会提交；使用 `gopass sync` 同步（除非 `core.autopush` 为 false，gopass 每次写入后也会推送）。
+在无界面的机器上，请让 gpg-agent 使用终端 pinentry（在 `~/.gnupg/gpg-agent.conf` 中设置 `pinentry-program /usr/bin/pinentry-tty`）。
 
 ## 用法
 
@@ -83,7 +101,8 @@ gh sk exec my-org -- gh sk exec -- npm run dev
 - **untracked**：只存在于 GitHub；使用 `--prune` 删除。若某作用域/种类在钥匙串中一项都没有，
   则拒绝清理，以免误删未被管理的仓库。
 
-通过 `gh sk set`/`import` 的修改总能被检测到；在“钥匙串访问”中直接编辑则通过条目的修改时间检测。
+通过 `gh sk set`/`import` 的修改总能被检测到；在“钥匙串访问”中直接编辑则通过条目的修改时间检测；
+用 `gopass edit` 直接编辑则检测不到（修改时间保存在条目内容中），请改用 `gh sk set`。
 
 ## 注意事项
 
@@ -99,7 +118,9 @@ gh sk exec my-org -- gh sk exec -- npm run dev
 ```sh
 go test ./...                              # 单元测试与 CLI 测试（内存钥匙串 + 模拟 GitHub）
 GHSK_KEYCHAIN_TESTS=1 go test ./...        # 同时在真实钥匙串上运行（会写入并删除测试条目）
+GHSK_GOPASS_TESTS=1 go test ./...         # 缺少 gpg 时报错而非跳过（gopass 测试使用临时密钥和存储）
 ```
 
-CI 在 macOS runner 上为每个 pull request 和推送到 `main` 的提交运行全部测试（包括在临时钥匙串中的钥匙串测试）；
+CI 为每个 pull request 和推送到 `main` 的提交运行全部测试：在 macOS runner 上运行（包括在临时钥匙串中的钥匙串测试），
+并在 Linux 上运行 gopass 测试；
 只有测试通过后才会发布 release。

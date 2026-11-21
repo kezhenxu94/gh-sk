@@ -19,7 +19,7 @@ import (
 
 // Dependencies, replaced in tests.
 var (
-	st        store.Store = store.Keychain{}
+	st        store.Store // opened before the first command runs
 	newRemote             = func() (remote.Remote, error) { return remote.New() }
 	stdin     *os.File    = os.Stdin
 	stdout    io.Writer   = os.Stdout
@@ -32,9 +32,12 @@ func newRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:         "sk",
 		Annotations: map[string]string{cobra.CommandDisplayNameAnnotation: "gh sk"},
-		Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain and push them to GitHub",
-		Long: `gh sk stores GitHub Actions secrets and variables in the macOS Keychain under
-GitHub-like scopes and pushes them to GitHub.
+		Short:       "Keep GitHub Actions secrets and variables in the macOS Keychain or gopass and push them to GitHub",
+		Long: `gh sk stores GitHub Actions secrets and variables locally under GitHub-like
+scopes and pushes them to GitHub.
+
+Storage: the macOS Keychain by default on macOS, gopass (or a pass store)
+elsewhere. Set GH_SK_STORE=gopass (or keychain) to choose.
 
 Scopes:
   github.com/<org>                          organization
@@ -44,6 +47,12 @@ The github.com/ prefix is optional. When the scope is omitted, it is the
 current repository, resolved like gh does (GH_REPO, gh repo set-default,
 then the git remotes).`,
 		SilenceUsage: true,
+		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
+			if st == nil {
+				st, err = store.New()
+			}
+			return err
+		},
 	}
 	root.AddCommand(setCmd(), getCmd(), lsCmd(), rmCmd(), importCmd(), exportCmd(), execCmd(),
 		statusCmd(), pushCmd(), pullCmd())

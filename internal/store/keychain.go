@@ -1,3 +1,5 @@
+//go:build darwin && cgo
+
 package store
 
 import (
@@ -142,3 +144,5 @@ func (Keychain) Delete(kind Kind, scope, name string) error {
 	}
 	return nil
 }
+
+func init() { keychainStore = Keychain{} }

@@ -12,9 +12,9 @@ func merge(old *Item, it Item) (Item, error) {
 		return it, nil
 	}
 	if old.Kind != it.Kind {
-		// Service+account is the keychain primary key, so a secret and a
+		// Scope+name is the store key, so a secret and a
 		// variable cannot share a name within one scope.
-		return it, fmt.Errorf("%s/%s already exists in keychain as %s", it.Scope, it.Name, old.Kind.Short())
+		return it, fmt.Errorf("%s/%s already exists as %s", it.Scope, it.Name, old.Kind.Short())
 	}
 	if it.Meta.GitHubUpdatedAt.IsZero() {
 		it.Meta.GitHubUpdatedAt = old.Meta.GitHubUpdatedAt

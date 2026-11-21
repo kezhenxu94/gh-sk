@@ -38,3 +38,18 @@ jobs:
 
       - name: Build release binaries
         run: ./script/build.sh && file dist/*
+
+  test-linux:
+    # The gopass backend with a real gpg, and the linux build without cgo.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - name: Test (including gopass with a throwaway gpg key)
+        env:
+          CGO_ENABLED: "0"
+          GHSK_GOPASS_TESTS: "1"
+        run: go test -count=1 -v ./...

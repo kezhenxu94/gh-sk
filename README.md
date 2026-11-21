@@ -3,12 +3,13 @@
 English | [简体中文](README.zh-CN.md)
 
 A [gh](https://cli.github.com) extension. GitHub Actions secrets are write-only; `gh sk` keeps them (and Actions variables)
-in the macOS Keychain as the source of truth and pushes them to GitHub.
+in the macOS Keychain or a [gopass](https://github.com/gopasspw/gopass) store as the
+source of truth and pushes them to GitHub.
 
 ## Install
 
 ```sh
-gh extension install kezhenxu94/gh-sk   # macOS only
+gh extension install kezhenxu94/gh-sk   # macOS and Linux (amd64, arm64)
 ```
 
 From source: `go build -o gh-sk . && gh extension install .` (the directory must be named `gh-sk`).
@@ -28,9 +29,31 @@ Auth: whatever `gh` is logged in with (or `GH_TOKEN`). Needs `repo` scope, plus
 current repository, resolved like `gh` does: `GH_REPO`, `gh repo set-default`, then
 the git remotes.
 
-Each item is a generic password: service = scope, account = name, kind =
+In the Keychain each item is a generic password: service = scope, account = name, kind =
 `github-secret` / `github-variable`, comment = JSON metadata (org visibility,
 sync timestamps). A secret and a variable cannot share a name in one scope.
+
+## Backends
+
+The Keychain is the default on macOS; Linux always uses gopass. To use gopass on
+macOS too (e.g. to share secrets with a Linux box), set `GH_SK_STORE=gopass`.
+The two backends are separate: nothing is copied between them.
+
+gh sk uses the gopass Go library, so only `gpg` (and `git` for syncing) is needed at
+runtime; the `gopass` CLI is only for setup and syncing. It uses your gopass
+configuration, so a plain `pass` store works too. Setup, e.g. on a Raspberry Pi:
+
+```sh
+sudo apt install gnupg git gopass
+gpg --import my-key.asc                 # the same key as on the Mac, or add a recipient
+gopass clone git@example.com:me/pass.git  # or `gopass setup` for a new store
+```
+
+Each entry is `gh-sk/<scope>/<NAME>`, holding JSON with the kind, value, metadata
+and modification time. Every write is committed when the store is a git repository;
+sync with `gopass sync` (gopass also pushes after each write unless
+`core.autopush` is false). On a headless machine, point gpg-agent at a terminal
+pinentry (`pinentry-program /usr/bin/pinentry-tty` in `~/.gnupg/gpg-agent.conf`).
 
 ## Usage
 
@@ -91,7 +114,9 @@ After each push gh sk records on the keychain item when it synced and GitHub's
   a scope/kind with nothing in the keychain, to avoid wiping unmanaged repos.
 
 Changes made with `gh sk set`/`import` are always detected. Edits made directly
-in Keychain Access are detected through the item's modification date.
+in Keychain Access are detected through the item's modification date; edits made
+with `gopass edit` are not (the modification time is inside the entry), so use
+`gh sk set` instead.
 
 ## Notes
 
@@ -110,7 +135,9 @@ in Keychain Access are detected through the item's modification date.
 ```sh
 go test ./...                              # unit + CLI tests with in-memory keychain and fake GitHub
 GHSK_KEYCHAIN_TESTS=1 go test ./...        # also run against the real Keychain (writes, then deletes, test items)
+GHSK_GOPASS_TESTS=1 go test ./...         # fail instead of skip when gpg is missing (gopass tests use a throwaway key and store)
 ```
 
 CI runs everything, including the Keychain tests in a throwaway keychain, on a macOS
-runner for every pull request and push to `main`; releases only publish after it passes.
+runner, and the gopass tests on Linux, for every pull request and push to `main`;
+releases only publish after they pass.

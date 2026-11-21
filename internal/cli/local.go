@@ -14,7 +14,7 @@ import (
 	"github.com/kezhenxu94/gh-sk/internal/store"
 )
 
-// itemsWithValues returns the keychain items of one exact scope, values loaded, sorted by name.
+// itemsWithValues returns the local items of one exact scope, values loaded, sorted by name.
 func itemsWithValues(kind store.Kind, sc scope.Scope) ([]store.Item, error) {
 	items, err := localItems(kind, sc)
 	if err != nil {
@@ -42,7 +42,7 @@ func exportCmd() *cobra.Command {
 	var file string
 	c := &cobra.Command{
 		Use:   "export [scope] -f FILE",
-		Short: "Write the scope's keychain values to a new dotenv file (plaintext; prefer `gh sk exec`)",
+		Short: "Write the scope's local values to a new dotenv file (plaintext; prefer `gh sk exec`)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			sArg := ""
@@ -59,7 +59,7 @@ func exportCmd() *cobra.Command {
 				return err
 			}
 			if len(items) == 0 {
-				return fmt.Errorf("no %ss stored in keychain for %s", kind.Short(), sc)
+				return fmt.Errorf("no %ss stored locally for %s", kind.Short(), sc)
 			}
 			// 0600 and never overwrite: the file holds plaintext values.
 			f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)

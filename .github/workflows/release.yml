@@ -10,7 +10,7 @@ jobs:
 
   release:
     needs: test
-    # cgo (Keychain) requires building on macOS.
+    # cgo (Keychain) requires building on macOS; linux is cross-compiled without cgo.
     runs-on: macos-latest
     permissions:
       contents: write

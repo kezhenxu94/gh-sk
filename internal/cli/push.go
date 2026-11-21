@@ -30,7 +30,7 @@ func (o *pushOpts) kinds() []store.Kind {
 	return []store.Kind{store.Secret, store.Variable}
 }
 
-// targetScopes returns the scope argument, or every keychain scope with --all.
+// targetScopes returns the scope argument, or every local scope with --all.
 func targetScopes(args []string, all bool) ([]scope.Scope, error) {
 	if all {
 		if len(args) > 0 {
@@ -49,7 +49,7 @@ func targetScopes(args []string, all bool) ([]scope.Scope, error) {
 			seen[it.Scope] = true
 			sc, err := scope.Parse(it.Scope)
 			if err != nil {
-				return nil, fmt.Errorf("keychain item %s/%s: %w", it.Scope, it.Name, err)
+				return nil, fmt.Errorf("local item %s/%s: %w", it.Scope, it.Name, err)
 			}
 			scopes = append(scopes, sc)
 		}
@@ -63,7 +63,7 @@ func targetScopes(args []string, all bool) ([]scope.Scope, error) {
 	return []scope.Scope{sc}, err
 }
 
-// localItems returns the keychain items of one exact scope; variable values are loaded.
+// localItems returns the local items of one exact scope; variable values are loaded.
 func localItems(kind store.Kind, sc scope.Scope) ([]store.Item, error) {
 	all, err := st.List(kind)
 	if err != nil {
@@ -138,7 +138,7 @@ func run(o *pushOpts, args []string, apply bool) error {
 			prune := o.prune
 			if prune && len(local) == 0 && len(rem) > 0 {
 				// Guard against wiping a scope that was never managed by gh sk.
-				fmt.Fprintf(stderr, "  not pruning %ss: none stored in keychain for %s\n", kind.Short(), sc)
+				fmt.Fprintf(stderr, "  not pruning %ss: none stored locally for %s\n", kind.Short(), sc)
 				prune = false
 			}
 			acts := pusher.Plan(sc, kind, local, rem, prune, o.force)
@@ -162,7 +162,7 @@ func run(o *pushOpts, args []string, apply bool) error {
 }
 
 func addScopeFlags(c *cobra.Command, o *pushOpts) {
-	c.Flags().BoolVar(&o.all, "all", false, "every scope stored in the keychain")
+	c.Flags().BoolVar(&o.all, "all", false, "every scope stored in the local store")
 	c.Flags().BoolVar(&o.secretsOnly, "secrets-only", false, "only secrets")
 	c.Flags().BoolVar(&o.varsOnly, "vars-only", false, "only variables")
 	c.MarkFlagsMutuallyExclusive("secrets-only", "vars-only")
@@ -172,7 +172,7 @@ func statusCmd() *cobra.Command {
 	o := &pushOpts{}
 	c := &cobra.Command{
 		Use:   "status [scope]",
-		Short: "Compare keychain with GitHub: create/update/ok/drift/untracked",
+		Short: "Compare the local store with GitHub: create/update/ok/drift/untracked",
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  func(_ *cobra.Command, args []string) error { return run(o, args, false) },
 	}
@@ -184,17 +184,17 @@ func pushCmd() *cobra.Command {
 	o := &pushOpts{}
 	c := &cobra.Command{
 		Use:   "push [scope]",
-		Short: "Push keychain secrets and variables to GitHub",
-		Long: `Push keychain secrets and variables to GitHub.
+		Short: "Push local secrets and variables to GitHub",
+		Long: `Push local secrets and variables to GitHub.
 
 Items unchanged since the last sync are skipped. Items changed on GitHub after
 the last sync (drift) are skipped unless --force is given. Items that exist on
-GitHub but not in the keychain are reported, and deleted with --prune.`,
+GitHub but not in the local store are reported, and deleted with --prune.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error { return run(o, args, true) },
 	}
 	addScopeFlags(c, o)
-	c.Flags().BoolVar(&o.prune, "prune", false, "delete items on GitHub that are not in the keychain")
+	c.Flags().BoolVar(&o.prune, "prune", false, "delete items on GitHub that are not in the local store")
 	c.Flags().BoolVar(&o.force, "force", false, "overwrite items changed on GitHub since the last sync")
 	c.Flags().BoolVar(&o.dryRun, "dry-run", false, "print the plan without changing anything")
 	return c
@@ -205,11 +205,11 @@ func pullCmd() *cobra.Command {
 	var secretsFile string
 	c := &cobra.Command{
 		Use:   "pull [scope]",
-		Short: "Copy Actions variables from GitHub into the keychain (secrets cannot be read back)",
-		Long: `Copy Actions variables from GitHub into the keychain.
+		Short: "Copy Actions variables from GitHub into the local store (secrets cannot be read back)",
+		Long: `Copy Actions variables from GitHub into the local store.
 
 Secret values cannot be read from GitHub. With --secrets-file, the names of
-secrets on GitHub that are not in the keychain are written to a dotenv file
+secrets on GitHub that are not in the local store are written to a dotenv file
 with empty values; fill them in and run ` + "`gh sk import -f FILE`" + ` to track them.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -278,7 +278,7 @@ with empty values; fill them in and run ` + "`gh sk import -f FILE`" + ` to trac
 }
 
 // writeSecretsTemplate writes NAME= lines for secrets on GitHub that are not in
-// the keychain. The file is created 0600 and never overwritten, as it will hold
+// the local store. The file is created 0600 and never overwritten, as it will hold
 // plaintext values once filled in.
 func writeSecretsTemplate(ctx context.Context, rc remote.Remote, sc scope.Scope, path string) error {
 	rem, err := rc.ListSecrets(ctx, sc)
@@ -300,7 +300,7 @@ func writeSecretsTemplate(ctx context.Context, rc remote.Remote, sc scope.Scope,
 		}
 	}
 	if len(names) == 0 {
-		fmt.Fprintf(stderr, "all secrets of %s are already in the keychain; %s not written\n", sc, path)
+		fmt.Fprintf(stderr, "all secrets of %s are already in the local store; %s not written\n", sc, path)
 		return nil
 	}
 	sort.Strings(names)
@@ -308,7 +308,7 @@ func writeSecretsTemplate(ctx context.Context, rc remote.Remote, sc scope.Scope,
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(f, "# Secrets of %s not in the keychain. Fill in the values, then run:\n", sc)
+	fmt.Fprintf(f, "# Secrets of %s not in the local store. Fill in the values, then run:\n", sc)
 	fmt.Fprintf(f, "#   gh sk import %s -f %s && rm %s\n", sc, path, path)
 	fmt.Fprintf(f, "# Lines left empty are skipped by import.\n")
 	for _, n := range names {

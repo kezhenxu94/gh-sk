@@ -42,7 +42,7 @@ func setCmd() *cobra.Command {
 	var repos []string
 	c := &cobra.Command{
 		Use:   "set [scope] NAME",
-		Short: "Store a secret (or variable) in the keychain; value from --body, a hidden prompt or stdin",
+		Short: "Store a secret (or variable) in the local store; value from --body, a hidden prompt or stdin",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sc, name, err := scopeAndName(args)
@@ -81,7 +81,7 @@ func getCmd() *cobra.Command {
 	var isVar bool
 	c := &cobra.Command{
 		Use:   "get [scope] NAME",
-		Short: "Print a value from the keychain",
+		Short: "Print a value from the local store",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			sc, name, err := scopeAndName(args)
@@ -100,7 +100,7 @@ func getCmd() *cobra.Command {
 	return c
 }
 
-// listAll returns keychain items of both kinds, optionally limited to a scope and its children.
+// listAll returns local items of both kinds, optionally limited to a scope and its children.
 func listAll(prefix string) ([]store.Item, error) {
 	var all []store.Item
 	for _, k := range []store.Kind{store.Secret, store.Variable} {
@@ -177,7 +177,7 @@ func lsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&all, "all", false, "list every scope stored in the keychain")
+	c.Flags().BoolVar(&all, "all", false, "list every scope stored in the local store")
 	return c
 }
 
@@ -185,7 +185,7 @@ func rmCmd() *cobra.Command {
 	var isVar, alsoRemote bool
 	c := &cobra.Command{
 		Use:   "rm [scope] NAME",
-		Short: "Delete from the keychain (and from GitHub with --remote)",
+		Short: "Delete from the local store (and from GitHub with --remote)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			sc, name, err := scopeAndName(args)
@@ -210,7 +210,7 @@ func rmCmd() *cobra.Command {
 			if err := st.Delete(kind, sc.String(), name); err != nil {
 				return err
 			}
-			fmt.Fprintf(stderr, "deleted %s %s/%s from keychain\n", kind.Short(), sc, name)
+			fmt.Fprintf(stderr, "deleted %s %s/%s from the local store\n", kind.Short(), sc, name)
 			return nil
 		},
 	}
@@ -224,7 +224,7 @@ func importCmd() *cobra.Command {
 	var file string
 	c := &cobra.Command{
 		Use:   "import [scope] -f FILE",
-		Short: "Store every KEY=VALUE of a dotenv file in the keychain",
+		Short: "Store every KEY=VALUE of a dotenv file in the local store",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			sArg := ""

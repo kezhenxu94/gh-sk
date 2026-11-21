@@ -1,4 +1,4 @@
-// Package store keeps GitHub secrets and variables in the macOS Keychain.
+// Package store keeps GitHub secrets and variables in the macOS Keychain or gopass.
 package store
 
 import (
@@ -23,7 +23,7 @@ func (k Kind) Short() string {
 	return "secret"
 }
 
-// Meta is stored as JSON in the keychain item comment.
+// Meta is stored as JSON alongside the value.
 type Meta struct {
 	// Org-level visibility: all, private or selected (with Repos).
 	Visibility string   `json:"visibility,omitempty"`
@@ -39,7 +39,7 @@ type Item struct {
 	Scope    string // e.g. github.com/org/repo
 	Name     string
 	Meta     Meta
-	Modified time.Time // keychain modification date
+	Modified time.Time // when the value was last written
 	Value    string    // only populated by Get
 }
 
@@ -53,10 +53,10 @@ func (it Item) ChangedSinceSync() bool {
 	return it.Meta.SyncedAt.IsZero() || it.Modified.After(it.Meta.SyncedAt.Add(localSlack))
 }
 
-var ErrNotFound = errors.New("not found in keychain")
+var ErrNotFound = errors.New("not found")
 
 type Store interface {
-	// List returns items of the given kind without values (no keychain prompt).
+	// List returns items of the given kind without values (no keychain prompt; gopass decrypts but drops them).
 	List(kind Kind) ([]Item, error)
 	Get(kind Kind, scope, name string) (Item, error)
 	// Set writes value and meta. It keeps the GitHubUpdatedAt (so drift is
