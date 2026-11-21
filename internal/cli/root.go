@@ -55,7 +55,7 @@ then the git remotes).`,
 		},
 	}
 	root.AddCommand(setCmd(), getCmd(), lsCmd(), rmCmd(), importCmd(), exportCmd(), execCmd(),
-		statusCmd(), pushCmd(), pullCmd())
+		statusCmd(), pushCmd(), pullCmd(), migrateCmd())
 	return root
 }
 

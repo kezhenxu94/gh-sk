@@ -33,7 +33,12 @@ gh extension install kezhenxu94/gh-sk   # 支持 macOS 和 Linux（amd64、arm64
 ## 存储后端
 
 macOS 默认使用钥匙串；Linux 始终使用 gopass。若要在 macOS 上也使用 gopass（例如与 Linux 机器共享 secret），
-设置 `GH_SK_STORE=gopass`。两个后端相互独立，不会互相复制。
+设置 `GH_SK_STORE=gopass`。两个后端相互独立。使用 `migrate` 在两者之间迁移：它会复制值（包括多行值）、组织可见性和同步状态，
+因此自上次推送后未改动的条目仍显示为“ok”；整个过程不落盘，源后端保持不变。
+
+```sh
+gh sk migrate --all --from keychain --to gopass   # 或指定作用域；--force 覆盖已有的不同值
+```
 
 gh sk 使用 gopass 的 Go 库，因此运行时只需要 `gpg`（同步时还需要 `git`）；`gopass` 命令行工具仅用于初始化和同步。
 它读取你的 gopass 配置，因此普通的 `pass` 存储同样可用。以树莓派为例：

@@ -100,11 +100,27 @@ func getCmd() *cobra.Command {
 	return c
 }
 
+// scopePrefix returns the scope argument (default: the current repo), or "" with --all.
+func scopePrefix(args []string, all bool) (string, error) {
+	if all {
+		if len(args) > 0 {
+			return "", errors.New("--all takes no scope argument")
+		}
+		return "", nil
+	}
+	sArg := ""
+	if len(args) == 1 {
+		sArg = args[0]
+	}
+	sc, err := resolveScope(sArg)
+	return sc.String(), err
+}
+
 // listAll returns local items of both kinds, optionally limited to a scope and its children.
-func listAll(prefix string) ([]store.Item, error) {
+func listAll(s store.Store, prefix string) ([]store.Item, error) {
 	var all []store.Item
 	for _, k := range []store.Kind{store.Secret, store.Variable} {
-		items, err := st.List(k)
+		items, err := s.List(k)
 		if err != nil {
 			return nil, err
 		}
@@ -130,23 +146,11 @@ func lsCmd() *cobra.Command {
 		Short: "List stored names (never values) of a scope and its children; defaults to the current repo",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			prefix := ""
-			if all {
-				if len(args) > 0 {
-					return errors.New("--all takes no scope argument")
-				}
-			} else {
-				sArg := ""
-				if len(args) == 1 {
-					sArg = args[0]
-				}
-				sc, err := resolveScope(sArg)
-				if err != nil {
-					return err
-				}
-				prefix = sc.String()
+			prefix, err := scopePrefix(args, all)
+			if err != nil {
+				return err
 			}
-			items, err := listAll(prefix)
+			items, err := listAll(st, prefix)
 			if err != nil {
 				return err
 			}

@@ -37,7 +37,14 @@ sync timestamps). A secret and a variable cannot share a name in one scope.
 
 The Keychain is the default on macOS; Linux always uses gopass. To use gopass on
 macOS too (e.g. to share secrets with a Linux box), set `GH_SK_STORE=gopass`.
-The two backends are separate: nothing is copied between them.
+The two backends are separate. To move items between them, use `migrate`: it
+copies values (including multi-line ones), org visibility and sync state, so
+items unchanged since their last push stay "ok"; nothing touches the disk and the
+source is left as is.
+
+```sh
+gh sk migrate --all --from keychain --to gopass   # or a scope; --force to overwrite
+```
 
 gh sk uses the gopass Go library, so only `gpg` (and `git` for syncing) is needed at
 runtime; the `gopass` CLI is only for setup and syncing. It uses your gopass

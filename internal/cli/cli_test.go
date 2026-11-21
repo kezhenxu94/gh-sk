@@ -640,3 +640,52 @@ func TestParseDotenv(t *testing.T) {
 		t.Errorf("missing '=' error = %v", err)
 	}
 }
+
+func TestMigrate(t *testing.T) {
+	h := setup(t)
+	dst := store.NewMemory()
+	stores := map[string]store.Store{"keychain": h.st, "gopass": dst}
+	old := openStore
+	t.Cleanup(func() { openStore = old })
+	openStore = func(name string) (store.Store, error) { return stores[name], nil }
+
+	pem := "-----BEGIN KEY-----\r\nabc\r\n-----END KEY-----\n"
+	h.mustRun("set", "PEM", "-b", pem)
+	h.mustRun("set", "V", "--var", "-b", "v")
+	h.mustRun("set", "o", "ORG", "-b", "org", "--visibility", "selected", "--repos", "r")
+	h.mustRun("push", "--all")
+	h.mustRun("set", "UNSYNCED", "-b", "new")
+	if err := dst.Set(store.Item{Kind: store.Secret, Scope: repo, Name: "V_CLASH", Value: "theirs"}); err != nil {
+		t.Fatal(err)
+	}
+	h.mustRun("set", "V_CLASH", "-b", "ours")
+
+	// A clash is reported, everything else is copied.
+	if err := h.run("migrate", "--all", "--from", "keychain", "--to", "gopass"); err == nil || !strings.Contains(err.Error(), "1 item(s)") {
+		t.Fatalf("migrate with a clash: %v", err)
+	}
+	if it, _ := dst.Get(store.Secret, repo, "V_CLASH"); it.Value != "theirs" {
+		t.Errorf("clash overwritten without --force: %q", it.Value)
+	}
+	if it, err := dst.Get(store.Secret, repo, "PEM"); err != nil || it.Value != pem {
+		t.Errorf("PEM = %q, %v", it.Value, err)
+	}
+	if it, err := dst.Get(store.Secret, "github.com/o", "ORG"); err != nil || it.Meta.Visibility != "selected" || !slices.Equal(it.Meta.Repos, []string{"r"}) {
+		t.Errorf("ORG = %+v, %v", it, err)
+	}
+
+	// Sync state carries over: pushed items stay ok, the unsynced one does not.
+	st = dst
+	if got := ops(h.mustRun("status")); got["secret PEM"] != "ok" || got["var V"] != "ok" || got["secret UNSYNCED"] != "create" {
+		t.Errorf("status in the destination = %v", got)
+	}
+
+	st = h.st
+	out := h.mustRun("migrate", "--all", "--from", "keychain", "--to", "gopass", "--force")
+	if it, _ := dst.Get(store.Secret, repo, "V_CLASH"); it.Value != "ours" || !strings.Contains(out, "replaced") || !strings.Contains(out, "same") {
+		t.Errorf("--force: %q\n%s", it.Value, out)
+	}
+	if err := h.run("migrate", "--from", "keychain", "--to", "keychain"); err == nil {
+		t.Error("migrating a backend to itself should fail")
+	}
+}

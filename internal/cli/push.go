@@ -36,7 +36,7 @@ func targetScopes(args []string, all bool) ([]scope.Scope, error) {
 		if len(args) > 0 {
 			return nil, errors.New("--all takes no scope argument")
 		}
-		items, err := listAll("")
+		items, err := listAll(st, "")
 		if err != nil {
 			return nil, err
 		}
