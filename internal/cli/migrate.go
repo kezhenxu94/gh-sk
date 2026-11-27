@@ -55,6 +55,8 @@ Items already in the destination with a different value are skipped unless
 				return fmt.Errorf("nothing stored in %s for %s", from, prefix)
 			}
 			skipped := 0
+			var writes []store.Item
+			var lines []string
 			for _, it := range items {
 				it, err := src.Get(it.Kind, it.Scope, it.Name)
 				if err != nil {
@@ -77,11 +79,16 @@ Items already in the destination with a different value are skipped unless
 						// The destination stamps its own modification time.
 						it.Meta.SyncedAt = time.Now()
 					}
-					if err := dst.Set(it); err != nil {
-						return err
-					}
+					writes = append(writes, it)
 				}
-				fmt.Fprintf(stdout, "  %-8s  %-6s  %s/%s\n", op, it.Kind.Short(), it.Scope, it.Name)
+				lines = append(lines, fmt.Sprintf("  %-8s  %-6s  %s/%s\n", op, it.Kind.Short(), it.Scope, it.Name))
+			}
+			// One batch, so gopass commits and pushes once.
+			if err := store.SetAll(dst, writes); err != nil {
+				return err
+			}
+			for _, l := range lines {
+				fmt.Fprint(stdout, l)
 			}
 			if skipped > 0 {
 				return fmt.Errorf("%d item(s) already in %s with a different value were skipped; rerun with --force to overwrite", skipped, to)

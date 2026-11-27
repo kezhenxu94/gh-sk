@@ -69,6 +69,19 @@ type Store interface {
 	Delete(kind Kind, scope, name string) error
 }
 
+// SetAll calls Set for each item; gopass commits (and pushes) them once.
+func SetAll(s Store, items []Item) error {
+	if b, ok := s.(interface{ setAll([]Item) error }); ok {
+		return b.setAll(items)
+	}
+	for _, it := range items {
+		if err := s.Set(it); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 var nameRe = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
 
 // NormalizeName upper-cases the name (GitHub does the same) and validates it.

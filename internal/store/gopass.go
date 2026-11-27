@@ -117,13 +117,13 @@ func (g Gopass) lookupKind(kind Kind, scope, name string) (Item, error) {
 	return *it, nil
 }
 
-func (g Gopass) write(it Item) error {
+func (g Gopass) write(ctx context.Context, it Item) error {
 	entry, err := entryName(it.Scope, it.Name)
 	if err != nil {
 		return err
 	}
 	e := gopassEntry{Kind: it.Kind, Modified: it.Modified.UTC(), Meta: it.Meta, Value: it.Value}
-	if err := g.s.Set(gopassCtx, entry, e); err != nil {
+	if err := g.s.Set(ctx, entry, e); err != nil {
 		return fmt.Errorf("save gopass entry %s: %w", entry, err)
 	}
 	return nil
@@ -156,7 +156,9 @@ func (g Gopass) Get(kind Kind, scope, name string) (Item, error) {
 	return g.lookupKind(kind, scope, name)
 }
 
-func (g Gopass) Set(it Item) error {
+func (g Gopass) Set(it Item) error { return g.set(gopassCtx, it) }
+
+func (g Gopass) set(ctx context.Context, it Item) error {
 	old, err := g.lookup(it.Scope, it.Name)
 	if err != nil {
 		return err
@@ -165,7 +167,22 @@ func (g Gopass) Set(it Item) error {
 		return err
 	}
 	it.Modified = time.Now()
-	return g.write(it)
+	return g.write(ctx, it)
+}
+
+// setAll stages every item but the last without committing; the last write
+// then commits them all, so core.autopush pushes once instead of per item.
+func (g Gopass) setAll(items []Item) error {
+	for i, it := range items {
+		ctx := ctxutil.WithGitCommit(gopassCtx, false)
+		if i == len(items)-1 {
+			ctx = ctxutil.WithCommitMessage(gopassCtx, fmt.Sprintf("gh sk: save %d item(s)", len(items)))
+		}
+		if err := g.set(ctx, it); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SetMeta keeps Modified, which tracks the value only.
@@ -175,7 +192,7 @@ func (g Gopass) SetMeta(kind Kind, scope, name string, meta Meta) error {
 		return err
 	}
 	it.Meta = meta
-	return g.write(it)
+	return g.write(gopassCtx, it)
 }
 
 func (g Gopass) Delete(kind Kind, scope, name string) error {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -99,6 +100,29 @@ func TestGopass(t *testing.T) {
 	// Every write is committed, so `gopass sync` / git can carry it.
 	if out, err := exec.Command("git", "-C", dir, "status", "--porcelain").Output(); err != nil || len(out) != 0 {
 		t.Errorf("uncommitted changes: %q, %v", out, err)
+	}
+
+	// SetAll commits (and so pushes) once for all items.
+	commits := func() int {
+		out, err := exec.Command("git", "-C", dir, "rev-list", "--count", "HEAD").Output()
+		n, _ := strconv.Atoi(strings.TrimSpace(string(out)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	n := commits()
+	if err := SetAll(g, []Item{{Kind: Secret, Scope: "github.com/b", Name: "A", Value: "a"}, {Kind: Variable, Scope: "github.com/b", Name: "B", Value: "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := commits() - n; got != 1 {
+		t.Errorf("SetAll made %d commits, want 1", got)
+	}
+	if out, _ := exec.Command("git", "-C", dir, "status", "--porcelain").Output(); len(out) != 0 {
+		t.Errorf("SetAll left uncommitted changes: %q", out)
+	}
+	if it, err := g.Get(Variable, "github.com/b", "B"); err != nil || it.Value != "b" {
+		t.Errorf("B = %q, %v", it.Value, err)
 	}
 
 	if err := g.Set(Item{Kind: Secret, Scope: "github.com/../..", Name: "X", Value: "v"}); err == nil {
